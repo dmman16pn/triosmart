@@ -91,6 +91,22 @@ describe('findOrCreateCustomer', () => {
     expect(b.id).toBe(a.id)
   })
 
+  it('chat có customer_id trỏ thẳng khách POS → gộp pos_link, confidence 100', async () => {
+    const a = await findOrCreateCustomer({
+      phoneNormalized: null, name: 'PosLink', sourceType: 'pos',
+      connectionId: conn.id, externalId: 'pos_uuid_1'
+    })
+    const chat = await seedConnection('chat')
+    const b = await findOrCreateCustomer({
+      phoneNormalized: null, name: 'PosLink Chat', posCustomerId: 'pos_uuid_1',
+      sourceType: 'chat', connectionId: chat.id, externalId: 'psid_pl'
+    })
+    expect(b.id).toBe(a.id)
+    const { rows } = await testPool.query(
+      "SELECT match_method, confidence FROM customer_identity WHERE external_id='psid_pl'")
+    expect(rows[0]).toMatchObject({ match_method: 'pos_link', confidence: 100 })
+  })
+
   it('trùng tên, cả hai không có phone → KHÔNG gộp, vào merge_queue', async () => {
     const a = await findOrCreateCustomer({
       phoneNormalized: null, name: 'Nguyễn Văn C',

@@ -27,6 +27,7 @@ async function handleConversation(connection, p) {
 
   const customer = await findOrCreateCustomer({
     phoneNormalized: phone.normalized, fbId: cust.fb_id ?? null, name: cust.name ?? null,
+    posCustomerId: cust.customer_id ?? null,
     sourceType: 'chat', connectionId: connection.id, externalId: String(psid)
   })
   if (phone.normalized) {

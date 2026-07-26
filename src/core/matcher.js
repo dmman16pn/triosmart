@@ -2,7 +2,7 @@ import { query } from '../db.js'
 
 // Thứ tự ghép theo spec §7.2. KHÔNG BAO GIỜ tự gộp khi confidence < 90.
 export async function findOrCreateCustomer({
-  phoneNormalized = null, fbId = null, name = null,
+  phoneNormalized = null, fbId = null, name = null, posCustomerId = null,
   sourceType, connectionId, externalId
 }) {
   // 0. Identity đã tồn tại → trả hồ sơ chủ hiện có (idempotent)
@@ -14,8 +14,15 @@ export async function findOrCreateCustomer({
 
   let match = null, method = 'first_seen', confidence = 100
 
+  // 0.5. Chat payload có customer_id trỏ thẳng khách POS (Pancake tự nối) → chắc chắn nhất
+  if (posCustomerId) {
+    const r = await query(
+      `SELECT c.* FROM customer_identity i JOIN customer c ON c.id = i.customer_id
+       WHERE i.source_type='pos' AND i.external_id = $1 LIMIT 1`, [String(posCustomerId)])
+    if (r.rows[0]) { match = r.rows[0]; method = 'pos_link'; confidence = 100 }
+  }
   // 1. Trùng phone_normalized → 100
-  if (phoneNormalized) {
+  if (!match && phoneNormalized) {
     const r = await query('SELECT * FROM customer WHERE phone_normalized=$1', [phoneNormalized])
     if (r.rows[0]) { match = r.rows[0]; method = 'phone'; confidence = 100 }
   }

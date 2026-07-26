@@ -19,17 +19,18 @@ describe('backfillChat', () => {
     const pos = await seedConnection('pos')
     await upsertCustomerFromPos(pos, { id: 'pc1', name: 'Khách POS', phone_numbers: ['0912345678'] })
 
+    // page_customers thực tế nằm ở v1, bắt buộc since/until, key trả về là "customers"
     nock('https://pages.fm')
-      .get('/api/public_api/v2/pages/page_1/page_customers')
-      .query(q => q.page_number === '1')
-      .reply(200, { success: true, data: [
-        { psid: 'ps1', name: 'Khách POS bên chat', phone_number: '84912345678' },
-        { psid: 'ps2', name: 'Khách chat mới' }
+      .get('/api/public_api/v1/pages/page_1/page_customers')
+      .query(q => q.page_number === '1' && q.since && q.until)
+      .reply(200, { success: true, customers: [
+        { psid: 'ps1', name: 'Khách POS bên chat', phone_numbers: ['84912345678'] },
+        { psid: 'ps2', name: 'Khách chat mới', phone_numbers: [] }
       ] })
-    nock('https://pages.fm')
-      .get('/api/public_api/v2/pages/page_1/page_customers')
-      .query(q => q.page_number === '2')
-      .reply(200, { success: true, data: [] })
+    nock('https://pages.fm').persist()
+      .get('/api/public_api/v1/pages/page_1/page_customers')
+      .query(true)
+      .reply(200, { success: true, customers: [] })
     nock('https://pages.fm')
       .get('/api/public_api/v2/pages/page_1/conversations')
       .query(q => !q.last_conversation_id)

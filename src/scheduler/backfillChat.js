@@ -32,9 +32,10 @@ export async function backfillChat(connectionId) {
   totalFail += await runEntity(conn, 'chat_customers', client.fetchPageCustomers(), async (pc) => {
     const psid = pc.psid ?? pc.id
     if (!psid) throw new Error('page_customer thiếu psid')
-    const phone = normalizePhone(pc.phone_number ?? pc.phone ?? null)
+    const phone = normalizePhone(pc.phone_numbers?.[0] ?? pc.phone_number ?? pc.phone ?? null)
     const customer = await findOrCreateCustomer({
       phoneNormalized: phone.normalized, fbId: pc.fb_id ?? null, name: pc.name ?? null,
+      posCustomerId: pc.customer_id ?? null,   // Pancake tự nối chat↔POS — kênh ghép mạnh nhất
       sourceType: 'chat', connectionId: conn.id, externalId: String(psid)
     })
     if (phone.normalized) {

@@ -43,6 +43,15 @@ describe('processPosCustomer', () => {
     expect(rows[0].phone_invalid).toBe(true)
   })
 
+  it('ngày sinh rác từ POS (năm 0000) → bỏ ngày sinh, khách vẫn được nhập', async () => {
+    await processPosCustomer(conn, { ...base, id: 'pos_dob', phone_numbers: ['0933333333'],
+      date_of_birth: '0000-07-05' })
+    const { rows } = await testPool.query(
+      "SELECT date_of_birth FROM customer WHERE phone_normalized='0933333333'")
+    expect(rows).toHaveLength(1)
+    expect(rows[0].date_of_birth).toBeNull()
+  })
+
   it('payload không có id → throw', async () => {
     await expect(processPosCustomer(conn, { name: 'X' })).rejects.toThrow(/thiếu id/)
   })

@@ -6,6 +6,16 @@ import { recomputeCustomer } from './rfm.js'
 // Trường hai chiều có thể xung đột (spec §7.6). Số liệu pos_* luôn do POS thắng tuyệt đối.
 const CONFLICT_FIELDS = ['name', 'email', 'gender', 'date_of_birth', 'address', 'tags', 'phone_numbers']
 
+// POS thực tế có ngày sinh rác kiểu "0000-07-05" — Postgres từ chối cả dòng.
+// Năm ngoài 1900–2100 → coi như không có ngày sinh, các trường khác vẫn nhập bình thường.
+export function sanitizeDob(v) {
+  if (v == null) return null
+  const m = String(v).match(/^(\d{4})-\d{2}-\d{2}/)
+  if (!m) return null
+  const year = Number(m[1])
+  return year >= 1900 && year <= 2100 ? String(v).slice(0, 10) : null
+}
+
 export async function upsertCustomerFromPos(connection, pc) {
   if (pc?.id == null) throw new Error('customer payload thiếu id')
   const phones = Array.isArray(pc.phone_numbers) ? pc.phone_numbers : []
@@ -28,7 +38,7 @@ export async function upsertCustomerFromPos(connection, pc) {
     const { rows: [cur] } = await query('SELECT * FROM customer WHERE id=$1', [customer.id])
     const incoming = {
       name: pc.name, email: pc.emails?.[0], gender: pc.gender,
-      date_of_birth: pc.date_of_birth,
+      date_of_birth: sanitizeDob(pc.date_of_birth),
       address: pc.shop_customer_addresses ?? pc.address, tags: pc.tags,
       phone_numbers: phones.length ? phones : undefined
     }
@@ -74,7 +84,7 @@ export async function upsertCustomerFromPos(connection, pc) {
      keep('name') ? null : (pc.name ?? null),
      keep('email') ? null : (pc.emails?.[0] ?? null),
      keep('gender') ? null : (pc.gender ?? null),
-     keep('date_of_birth') ? null : (pc.date_of_birth ?? null),
+     keep('date_of_birth') ? null : sanitizeDob(pc.date_of_birth),
      keep('phone_numbers') ? null : primary.normalized,
      keep('phone_numbers') ? null : (phones[0] ?? null),
      keep('phone_numbers') ? null : (phones.length > 0 ? !primary.valid : null),
