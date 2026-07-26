@@ -8,8 +8,9 @@ const email = String(process.env.ADMIN_EMAIL ?? '').toLowerCase().trim()
 const password = process.env.ADMIN_PASSWORD ?? ''
 const name = process.env.ADMIN_NAME ?? 'Quản trị viên'
 
-if (!email || !email.includes('@')) {
-  console.error('Thiếu ADMIN_EMAIL hợp lệ'); process.exit(1)
+if (!email || email.length < 3 || /\s/.test(email)) {
+  console.error('ADMIN_EMAIL phải là tên đăng nhập (≥3 ký tự, không có dấu cách) hoặc email')
+  process.exit(1)
 }
 try { assertStrongPassword(password) }
 catch (e) { console.error(`ADMIN_PASSWORD: ${e.message}`); process.exit(1) }

@@ -178,6 +178,27 @@ describe('bảo mật — không tái phát các lỗ hổng đã vá', () => {
     expect(await login('chg@test.vn', 'KhoaMoi2026abc')).toBeTruthy()
   })
 
+  it('chính sách mật khẩu: đủ dài + đa dạng thì nhận, phổ biến/đơn điệu thì loại', async () => {
+    const { assertStrongPassword } = await import('../src/core/password.js')
+    // Nhận: đủ 10 ký tự và từ 3 nhóm ký tự trở lên
+    for (const ok of ['Trio123456@@', 'CongTy2026abc', 'Kh0aBiMat!!', 'Trio2026xyz']) {
+      expect(() => assertStrongPassword(ok)).not.toThrow()
+    }
+    // Loại: quá ngắn, chỉ 2 nhóm ký tự, hoặc nằm trong danh sách phổ biến nhất
+    for (const bad of ['ngan1A@', 'matkhau123', 'chỉchữthường', '1234567890', 'Password1!'.slice(0, 8)]) {
+      expect(() => assertStrongPassword(bad)).toThrow()
+    }
+    expect(() => assertStrongPassword('Mat-Khau-123')).toThrow()   // 'matkhau123' sau khi bỏ dấu gạch
+  })
+
+  it('đăng nhập được bằng TÊN ĐĂNG NHẬP, không bắt buộc dạng email', async () => {
+    await mkUser('admin', { email: 'triosmart-test', password: 'Trio123456@@' })
+    const res = await request(app).post('/api/auth/login')
+      .send({ email: 'triosmart-test', password: 'Trio123456@@' })
+    expect(res.status).toBe(200)
+    expect(res.body.token).toBeTruthy()
+  })
+
   it('không được khoá admin cuối cùng', async () => {
     const u = await mkUser('admin', { email: 'last@test.vn' })
     const token = await login('last@test.vn')

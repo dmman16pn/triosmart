@@ -33,12 +33,24 @@ export async function verifyPasswordAsync(plain, stored) {
 const DUMMY_HASH = hashPassword(crypto.randomBytes(32).toString('hex'))
 export const burnPasswordTime = () => verifyPasswordAsync('x', DUMMY_HASH).catch(() => false)
 
-// Yêu cầu độ mạnh tối thiểu cho mật khẩu người dùng (áp dụng khi tạo/đổi mật khẩu)
+// Danh sách mật khẩu bị dùng nhiều nhất — chặn theo đúng chuỗi, không chặn theo "có chứa"
+// (chặn "có chứa" sẽ loại oan cả những mật khẩu mạnh chỉ tình cờ mang một đoạn phổ biến).
+const BANNED = new Set([
+  '123456', '1234567', '12345678', '123456789', '1234567890', 'password', 'password1',
+  'matkhau', 'matkhau123', 'doimatkhau', 'doimatkhau123', 'qwerty', 'qwerty123',
+  'admin', 'admin123', 'administrator', 'iloveyou', 'abc123', 'letmein', 'welcome'
+])
+
+// Yêu cầu độ mạnh tối thiểu (áp dụng khi tạo/đổi mật khẩu): độ dài + đa dạng ký tự.
+// Cách đo này theo hướng dẫn NIST — độ dài và số nhóm ký tự quyết định công sức dò,
+// quan trọng hơn nhiều so với việc cấm một vài chuỗi con.
 export function assertStrongPassword(plain) {
   const p = String(plain ?? '')
   if (p.length < 10) throw new Error('Mật khẩu phải từ 10 ký tự trở lên')
-  if (!/[a-zA-Z]/.test(p) || !/[0-9]/.test(p)) throw new Error('Mật khẩu phải có cả chữ và số')
-  const weak = ['matkhau', 'password', '123456', 'admin', 'qwerty', 'doimatkhau']
-  if (weak.some(w => p.toLowerCase().includes(w))) throw new Error('Mật khẩu quá dễ đoán')
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter(re => re.test(p)).length
+  if (classes < 3) {
+    throw new Error('Mật khẩu cần ít nhất 3 trong 4 nhóm: chữ thường, chữ HOA, chữ số, ký tự đặc biệt')
+  }
+  if (BANNED.has(p.toLowerCase().replace(/[^a-z0-9]/g, ''))) throw new Error('Mật khẩu quá phổ biến, dễ bị dò')
   return p
 }

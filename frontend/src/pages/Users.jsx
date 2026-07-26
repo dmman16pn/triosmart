@@ -78,7 +78,7 @@ function UserModal({ user, conns, onClose }) {
 
   return (
     <Modal title={user ? `Sửa: ${user.name}` : 'Thêm người dùng'} onClose={onClose}>
-      <Field label="Email"><input className="inp" value={form.email} disabled={!!user}
+      <Field label="Tên đăng nhập / Email"><input className="inp" autoCapitalize="none" value={form.email} disabled={!!user}
         onChange={e => set('email', e.target.value)} /></Field>
       <Field label="Tên"><input className="inp" value={form.name} onChange={e => set('name', e.target.value)} /></Field>
       <Field label={user ? 'Mật khẩu mới (bỏ trống nếu giữ nguyên)' : 'Mật khẩu'}>

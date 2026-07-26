@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, setToken } from '../api.js'
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState('')   // ô này nhận TÊN ĐĂNG NHẬP hoặc email
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -27,8 +27,9 @@ export default function Login({ onLogin }) {
           Lớp dữ liệu khách hàng hợp nhất trên Pancake
         </p>
         <div className="field">
-          <label className="lbl">Email</label>
-          <input className="inp" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+          <label className="lbl">Tên đăng nhập</label>
+          <input className="inp" type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off"
+            value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
         </div>
         <div className="field">
           <label className="lbl">Mật khẩu</label>
