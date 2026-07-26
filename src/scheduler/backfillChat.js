@@ -3,6 +3,7 @@ import { decryptCredential } from '../core/credentials.js'
 import { ChatClient } from '../pancake/chatClient.js'
 import { normalizePhone } from '../core/phone.js'
 import { findOrCreateCustomer } from '../core/matcher.js'
+import { recomputeAll } from '../core/rfm.js'
 
 async function runEntity(conn, entity, iterator, handler) {
   const log = await query(
@@ -72,4 +73,7 @@ export async function backfillChat(connectionId) {
     `UPDATE connection SET last_ok_at = CASE WHEN $2=0 THEN now() ELSE last_ok_at END,
        last_error = CASE WHEN $2>0 THEN 'backfill chat có lỗi, xem sync_log' ELSE NULL END
      WHERE id=$1`, [conn.id, totalFail])
+
+  // Khách chat tạo hàng loạt chưa có phân khúc — quét lại (chỉ UPDATE dòng thay đổi)
+  await recomputeAll()
 }
