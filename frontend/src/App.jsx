@@ -14,11 +14,14 @@ import CustomerProfile from './pages/CustomerProfile.jsx'
 import Segments from './pages/Segments.jsx'
 import MyWork from './pages/MyWork.jsx'
 import ChangePassword from './pages/ChangePassword.jsx'
+import MobileShell from './MobileShell.jsx'
+import { useIsMobile } from './useIsMobile.js'
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [ready, setReady] = useState(false)
   const nav = useNavigate()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     setUnauthorizedHandler(() => { setUser(null) })
@@ -36,6 +39,29 @@ export default function App() {
   const isAdmin = user.role === 'admin'
   const isManagerUp = ['admin', 'manager'].includes(user.role)
   const logout = () => { setToken(null); setUser(null) }
+
+  // Cùng một bộ route, hai lớp vỏ khác nhau — không nhân đôi logic trang nào
+  const routes = (
+    <Routes>
+      <Route path="/" element={isManagerUp ? <Dashboard /> : <Navigate to="/customers" />} />
+      <Route path="/customers" element={<Customers user={user} />} />
+      <Route path="/customers/:id" element={<CustomerProfile user={user} />} />
+      <Route path="/segments" element={<Segments />} />
+      <Route path="/my-work" element={<MyWork />} />
+      <Route path="/merge-queue" element={isManagerUp ? <MergeQueue /> : <Navigate to="/customers" />} />
+      <Route path="/sync-logs" element={isManagerUp ? <SyncLogs /> : <Navigate to="/customers" />} />
+      <Route path="/audit" element={isManagerUp ? <AuditLog /> : <Navigate to="/customers" />} />
+      <Route path="/connections" element={isAdmin ? <Connections /> : <Navigate to="/customers" />} />
+      <Route path="/users" element={isAdmin ? <Users /> : <Navigate to="/customers" />} />
+      <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/customers" />} />
+      <Route path="/change-password" element={<ChangePassword onDone={() => setUser(null)} />} />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  )
+
+  if (isMobile) {
+    return <MobileShell user={user} onLogout={logout}>{routes}</MobileShell>
+  }
 
   return (
     <div className="app">
@@ -69,21 +95,7 @@ export default function App() {
       </aside>
 
       <main className="main">
-        <Routes>
-          <Route path="/" element={isManagerUp ? <Dashboard /> : <Navigate to="/customers" />} />
-          <Route path="/customers" element={<Customers user={user} />} />
-          <Route path="/customers/:id" element={<CustomerProfile user={user} />} />
-          <Route path="/segments" element={<Segments />} />
-          <Route path="/my-work" element={<MyWork />} />
-          <Route path="/merge-queue" element={isManagerUp ? <MergeQueue /> : <Navigate to="/customers" />} />
-          <Route path="/sync-logs" element={isManagerUp ? <SyncLogs /> : <Navigate to="/customers" />} />
-          <Route path="/audit" element={isManagerUp ? <AuditLog /> : <Navigate to="/customers" />} />
-          <Route path="/connections" element={isAdmin ? <Connections /> : <Navigate to="/customers" />} />
-          <Route path="/users" element={isAdmin ? <Users /> : <Navigate to="/customers" />} />
-          <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/customers" />} />
-          <Route path="/change-password" element={<ChangePassword onDone={() => setUser(null)} />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        {routes}
       </main>
     </div>
   )

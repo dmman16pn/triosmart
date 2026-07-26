@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, fmtMoney } from '../api.js'
 import { SegmentBadge } from '../ui.jsx'
+import { useIsMobile } from '../useIsMobile.js'
 
 const HINTS = {
   'Khách VIP': 'Giữ chân bằng ưu đãi riêng',
@@ -17,7 +18,31 @@ const HINTS = {
 export default function Segments() {
   const [rows, setRows] = useState([])
   const nav = useNavigate()
+  const isMobile = useIsMobile()
   useEffect(() => { api('/segments').then(setRows).catch(() => {}) }, [])
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="m-dim" style={{ marginBottom: 12 }}>Chạm một nhóm để xem danh sách khách</div>
+        <div className="m-list">
+          {rows.map(r => (
+            <button key={r.segment} className="m-card" style={{ textAlign: 'left', width: '100%' }}
+              onClick={() => nav(`/customers?segment=${encodeURIComponent(r.segment)}`)}>
+              <div className="m-card-top" style={{ marginBottom: 6 }}>
+                <SegmentBadge s={r.segment} />
+                <span style={{ marginLeft: 'auto', fontSize: 22, fontWeight: 800 }}>
+                  {r.count.toLocaleString('vi-VN')}</span>
+              </div>
+              {r.revenue != null && <div className="m-card-meta"><b>{fmtMoney(r.revenue)}</b></div>}
+              <div className="m-dim" style={{ marginTop: 5 }}>{HINTS[r.segment]}</div>
+            </button>
+          ))}
+          {rows.length === 0 && <div className="empty">Đang tải…</div>}
+        </div>
+      </>
+    )
+  }
 
   return (
     <>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, fmtMoney, fmtDate } from '../api.js'
 import { SegmentBadge, SourceBadge, useToast } from '../ui.jsx'
+import { useIsMobile } from '../useIsMobile.js'
 
 const SEGMENTS = ['Khách VIP', 'Trung thành', 'Có nguy cơ rời bỏ', 'Đã rời bỏ', 'Mua một lần', 'Khách mới', 'Chưa mua']
 
@@ -18,6 +19,7 @@ export default function Customers({ user }) {
   const sort = params.get('sort') ?? ''
   const dir = params.get('dir') ?? 'desc'
   const isManagerUp = ['admin', 'manager'].includes(user.role)
+  const isMobile = useIsMobile()
 
   const load = () => {
     const qs = new URLSearchParams()
@@ -53,6 +55,89 @@ export default function Customers({ user }) {
   }
 
   const pages = Math.max(1, Math.ceil(data.total / (data.page_size || 25)))
+
+  const searchForm = (
+    <form className="m-search" onSubmit={e => { e.preventDefault(); setParam('q', q) }}>
+      <input className="inp" type="search" inputMode="search" enterKeyHint="search"
+        placeholder="Tên hoặc số điện thoại…" value={q} onChange={e => setQ(e.target.value)} />
+      <button className="btn primary">Tìm</button>
+    </form>
+  )
+
+  const chips = (
+    <div className="m-chips chips">
+      <button className={`chip${!segment ? ' on' : ''}`} onClick={() => setParam('segment', '')}>Tất cả</button>
+      {SEGMENTS.map(s2 => (
+        <button key={s2} className={`chip${segment === s2 ? ' on' : ''}`}
+          onClick={() => setParam('segment', segment === s2 ? '' : s2)}>{s2}</button>
+      ))}
+    </div>
+  )
+
+  // --- Giao diện điện thoại: tra cứu là chính, mỗi khách một thẻ, gọi được ngay ---
+  if (isMobile) {
+    return (
+      <>
+        {searchForm}
+        {chips}
+        <div className="m-dim" style={{ marginBottom: 10 }}>
+          {data.total.toLocaleString('vi-VN')} khách{segment ? ` · ${segment}` : ''}
+        </div>
+
+        <div className="m-list">
+          {data.rows.map(r => (
+            <div key={r.id} className="m-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Link to={`/customers/${r.id}`} style={{ color: 'inherit', flex: 1, minWidth: 0 }}>
+                <div className="m-card-top" style={{ marginBottom: 6 }}>
+                  <div className="m-card-name">{r.name ?? '(chưa có tên)'}</div>
+                  <SegmentBadge s={r.rfm_segment} />
+                </div>
+                <div className="mono m-dim">
+                  {r.phone_normalized ?? (r.phone_invalid ? '⚠️ SĐT lỗi' : 'chưa có SĐT')}
+                </div>
+                <div className="m-card-meta" style={{ marginTop: 5 }}>
+                  {/* Khách chưa mua thì không lặp lại "0đ · 0 đơn · chưa mua" ba lần */}
+                  {Number(r.pos_succeed_order_count) > 0 ? (
+                    <>
+                      {isManagerUp && <span><b>{fmtMoney(r.pos_purchased_amount)}</b></span>}
+                      <span>{Number(r.pos_succeed_order_count)} đơn</span>
+                      {r.pos_last_order_at && <span className="m-dim">{fmtDate(r.pos_last_order_at)}</span>}
+                    </>
+                  ) : r.rfm_segment !== 'Chưa mua' ? (
+                    <span className="m-dim">Chưa phát sinh đơn</span>
+                  ) : null}
+                  <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                    {(r.identities ?? []).map((i, idx) => <SourceBadge key={idx} type={i.source_type} />)}
+                  </span>
+                </div>
+              </Link>
+              {r.phone_normalized && (
+                <a className="m-call" href={`tel:${r.phone_normalized}`}
+                  aria-label={`Gọi ${r.name ?? 'khách'}`}>📞</a>
+              )}
+            </div>
+          ))}
+          {data.rows.length === 0 && (
+            <div className="empty">
+              {params.get('q') || segment
+                ? 'Không có khách nào khớp. Thử tìm bằng số điện thoại.'
+                : 'Nhập tên hoặc số điện thoại để tìm khách.'}
+            </div>
+          )}
+        </div>
+
+        {pages > 1 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+            <button className="btn" style={{ flex: 1, minHeight: 44 }} disabled={page <= 1}
+              onClick={() => { setParam('page', page - 1); window.scrollTo(0, 0) }}>← Trước</button>
+            <span className="m-dim">{page}/{pages}</span>
+            <button className="btn" style={{ flex: 1, minHeight: 44 }} disabled={page >= pages}
+              onClick={() => { setParam('page', page + 1); window.scrollTo(0, 0) }}>Sau →</button>
+          </div>
+        )}
+      </>
+    )
+  }
 
   return (
     <>

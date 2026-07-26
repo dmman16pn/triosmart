@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api, fmtMoney, fmtDate, fmtDateTime } from '../api.js'
 import { SegmentBadge, SourceBadge, Field, useToast } from '../ui.jsx'
+import { useIsMobile } from '../useIsMobile.js'
 
 export default function CustomerProfile({ user }) {
   const { id } = useParams()
@@ -12,6 +13,7 @@ export default function CustomerProfile({ user }) {
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('all')
   const toast = useToast()
+  const isMobile = useIsMobile()
 
   const load = () => api(`/customers/${id}`).then(setD).catch(e => setErr(e.message))
   // Bọc trong {} — effect trả về Promise sẽ bị React gọi như hàm cleanup khi rời trang → crash
@@ -55,6 +57,96 @@ export default function CustomerProfile({ user }) {
 
   const timeline = d.timeline.filter(t =>
     filter === 'all' ? true : filter === 'order' ? t.kind === 'order' : t.kind === 'chat')
+
+  // === Giao diện điện thoại ===
+  // Cả màn hình xoay quanh MỘT trục thời gian hai màu: đơn hàng (xanh ngọc) và
+  // hội thoại (tím) đan nhau. Đây là thứ Pancake không cho thấy, và là lý do
+  // sản phẩm này tồn tại — nên nó chiếm phần lớn màn hình thay vì các ô nhập liệu.
+  if (isMobile) {
+    const nOrders = d.orders.length, nChats = d.conversations.length
+    return (
+      <>
+        <div className="m-hero">
+          <div className="m-hero-name">{c.name ?? '(chưa có tên)'}</div>
+          <div style={{ marginTop: 6 }}><SegmentBadge s={c.rfm_segment} /></div>
+          <div className="m-hero-phone">
+            {c.phone_normalized ?? c.phone_raw ?? 'chưa có số điện thoại'}
+            {c.phone_invalid && ' · ⚠️ số không hợp lệ'}
+          </div>
+
+          <div className="m-stats">
+            <div className="m-stat">
+              <div className="m-stat-v">{fmtMoney(c.pos_purchased_amount)}</div>
+              <div className="m-stat-l">Đã mua</div>
+            </div>
+            <div className="m-stat">
+              <div className="m-stat-v">{Number(c.pos_succeed_order_count) || 0}</div>
+              <div className="m-stat-l">Đơn thành công</div>
+            </div>
+            <div className="m-stat">
+              <div className="m-stat-v">{c.pos_last_order_at ? fmtDate(c.pos_last_order_at) : '—'}</div>
+              <div className="m-stat-l">Mua gần nhất</div>
+            </div>
+          </div>
+
+          {c.phone_normalized && (
+            <div className="m-actions">
+              <a className="btn primary" href={`tel:${c.phone_normalized}`}>📞 Gọi</a>
+              <a className="btn" href={`sms:${c.phone_normalized}`}>💬 Nhắn tin</a>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+            {d.identities.map((i, k) => <SourceBadge key={k} type={i.source_type} />)}
+            {c.internal_note && <span className="badge b-mute">có ghi chú</span>}
+          </div>
+          {c.internal_note && (
+            <div className="m-dim" style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{c.internal_note}</div>
+          )}
+        </div>
+
+        <div className="m-chips chips">
+          {[['all', `Tất cả (${nOrders + nChats})`], ['order', `Đơn hàng (${nOrders})`], ['chat', `Hội thoại (${nChats})`]]
+            .map(([k, l]) => (
+              <button key={k} className={`chip${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>{l}</button>
+            ))}
+        </div>
+
+        <div className={`m-spine ${nOrders && nChats ? 'both' : nChats ? 'only-chat' : 'only-pos'}`}>
+          {timeline.map((t, i) => (
+            <div key={i} className={`m-node ${t.kind === 'order' ? 'pos' : 'chat'}`}>
+              <div className="m-node-in">
+                {t.kind === 'order' ? (
+                  <>
+                    <div className="m-node-t">Đơn #{t.data.pos_order_id} · {fmtMoney(t.data.total_amount)}</div>
+                    <div className="m-node-d">{fmtDateTime(t.at)} · trạng thái {t.data.status ?? '—'}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="m-node-t">Hội thoại {t.data.type ?? 'INBOX'}</div>
+                    <div className="m-node-d">{fmtDateTime(t.at)}</div>
+                    {t.data.last_message_snippet && (
+                      <div className="m-node-s">{t.data.last_message_snippet}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+          {timeline.length === 0 && (
+            <div className="empty">
+              {filter === 'all' ? 'Khách chưa có hoạt động nào' :
+               filter === 'order' ? 'Khách chưa có đơn hàng nào' : 'Khách chưa có hội thoại nào'}
+            </div>
+          )}
+        </div>
+
+        <div className="m-dim" style={{ textAlign: 'center', margin: '16px 0 4px' }}>
+          Sửa thông tin khách trên máy tính để xem đủ nhật ký thay đổi
+        </div>
+      </>
+    )
+  }
 
   return (
     <>

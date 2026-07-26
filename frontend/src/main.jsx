@@ -5,6 +5,7 @@ import App from './App.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import { ToastProvider } from './ui.jsx'
 import './styles.css'
+import './mobile.css'
 
 function Root() {
   const location = useLocation()

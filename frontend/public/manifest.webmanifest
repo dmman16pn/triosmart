@@ -1,0 +1,16 @@
+{
+  "name": "TRIOSMART",
+  "short_name": "TRIOSMART",
+  "description": "Hồ sơ khách hàng hợp nhất từ Pancake POS và Chat",
+  "start_url": "/customers",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F7FC",
+  "theme_color": "#4A3AFF",
+  "lang": "vi",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
