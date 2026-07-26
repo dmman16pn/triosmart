@@ -9,7 +9,13 @@ export const testPool = new pg.Pool({ connectionString: process.env.DATABASE_URL
 
 export async function resetDb() {
   await testPool.query(`TRUNCATE webhook_event, sync_log, audit_log, merge_queue,
-    echo_guard, conversation, "order", customer_identity, customer, connection CASCADE`)
+    echo_guard, conversation, "order", customer_identity, customer, connection,
+    pending_push, app_user, alert, setting CASCADE`)
+  await testPool.query(`INSERT INTO setting (key, value) VALUES
+    ('rfm', '{"vip_amount":5000000,"vip_days":30,"loyal_orders":3,"loyal_days":60,"risk_days":120,"gone_days":120,"new_days":30}'),
+    ('alert', '{"email":"","error_rate_pct":20,"window_minutes":5}'),
+    ('backfill', '{"cron":"15 * * * *"}'),
+    ('custom_fields_def', '[]')`)
 }
 
 export async function seedConnection(type = 'pos') {

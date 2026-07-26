@@ -1,6 +1,7 @@
 import { query } from '../db.js'
 import { normalizePhone } from './phone.js'
 import { findOrCreateCustomer } from './matcher.js'
+import { recomputeCustomer } from './rfm.js'
 
 // Trường hai chiều có thể xung đột (spec §7.6). Số liệu pos_* luôn do POS thắng tuyệt đối.
 const CONFLICT_FIELDS = ['name', 'email', 'gender', 'date_of_birth', 'address', 'tags', 'phone_numbers']
@@ -85,5 +86,6 @@ export async function upsertCustomerFromPos(connection, pc) {
        ? JSON.stringify(pc.shop_customer_addresses ?? pc.address) : null),
      keep('tags') ? null : (Array.isArray(pc.tags) ? JSON.stringify(pc.tags) : null)]
   )
+  await recomputeCustomer(customer.id)   // spec §7.7: tính lại phân khúc mỗi khi customer thay đổi
   return customer.id
 }
