@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, fmtMoney, fmtDateTime } from '../api.js'
+import { api, fmtMoney, fmtDate, fmtDateTime } from '../api.js'
 import { StatusDot, SourceBadge } from '../ui.jsx'
 
 export default function Dashboard() {
@@ -41,8 +41,15 @@ export default function Dashboard() {
           <div className="kpi-v">{d.total_customers.toLocaleString('vi-VN')}</div></div>
         <div className="card"><div className="kpi-l">Khách mới 7 ngày</div>
           <div className="kpi-v">{d.new_customers_7d.toLocaleString('vi-VN')}</div></div>
-        <div className="card"><div className="kpi-l">Tổng doanh số</div>
-          <div className="kpi-v">{fmtMoney(d.total_revenue)}</div></div>
+        <div className="card"><div className="kpi-l">Doanh số trọn đời (Pancake ghi nhận)</div>
+          <div className="kpi-v">{fmtMoney(d.total_revenue)}</div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>Cộng dồn trên hồ sơ khách, gồm cả lịch sử cũ</div></div>
+        <div className="card"><div className="kpi-l">Doanh số từ đơn đã đồng bộ</div>
+          <div className="kpi-v">{fmtMoney(d.synced_orders_revenue ?? 0)}</div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+            {(d.synced_orders ?? 0).toLocaleString('vi-VN')} đơn API Pancake trả về
+            {d.synced_orders_from ? ` (từ ${fmtDate(d.synced_orders_from)})` : ''}
+          </div></div>
         <div className="card"><div className="kpi-l">Tỉ lệ ghép thành công</div>
           <div className="kpi-v">{(d.match_rate * 100).toFixed(0)}%</div></div>
         <div className="card"><div className="kpi-l">SĐT hợp lệ (điều kiện Zalo v2)</div>

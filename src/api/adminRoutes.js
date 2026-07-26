@@ -263,7 +263,7 @@ adminRoutes.put('/settings/:key', requireRole('admin'), async (req, res) => {
 
 /* ---------- A1 — Dashboard (admin/manager — chứa doanh số toàn hệ thống, spec §3.2) ---------- */
 adminRoutes.get('/dashboard', requireRole('admin', 'manager'), async (_req, res) => {
-  const [counts, phoneQuality, matched, events24h, eventStatus, mergeOpen, alerts, connections, deadPush] =
+  const [counts, phoneQuality, matched, events24h, eventStatus, mergeOpen, alerts, connections, deadPush, orderStats] =
     await Promise.all([
       query(`SELECT count(*)::int AS total,
                count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS new_7d,
@@ -282,13 +282,21 @@ adminRoutes.get('/dashboard', requireRole('admin', 'manager'), async (_req, res)
       query(`SELECT count(*)::int AS n FROM merge_queue WHERE status='open'`),
       query(`SELECT * FROM alert WHERE open ORDER BY created_at DESC LIMIT 20`),
       query(`SELECT id, name, type, status, webhook_status, last_ok_at, last_error FROM connection`),
-      query(`SELECT count(*)::int AS n FROM pending_push WHERE status IN ('pending','dead')`)
+      query(`SELECT count(*)::int AS n FROM pending_push WHERE status IN ('pending','dead')`),
+      // Doanh số từ ĐƠN đồng bộ được. Khác tổng tích luỹ trên khách vì API Pancake chỉ
+      // trả về đơn trong khoảng gần đây — lịch sử cũ chỉ còn ở dạng tổng trên hồ sơ khách.
+      query(`SELECT count(*)::int AS n, coalesce(sum(total_amount),0)::numeric AS revenue,
+               min(inserted_at) AS from_at, max(inserted_at) AS to_at FROM "order"`)
     ])
   const c = counts.rows[0], pq = phoneQuality.rows[0]
   res.json({
     total_customers: c.total,
     new_customers_7d: c.new_7d,
-    total_revenue: Number(c.revenue),
+    total_revenue: Number(c.revenue),                        // trọn đời, theo số Pancake ghi trên hồ sơ khách
+    synced_orders: orderStats.rows[0].n,                     // số đơn TRIOSMART lấy được qua API
+    synced_orders_revenue: Number(orderStats.rows[0].revenue),
+    synced_orders_from: orderStats.rows[0].from_at,
+    synced_orders_to: orderStats.rows[0].to_at,
     match_rate: c.total ? matched.rows[0].n / c.total : 0,
     phone_valid_rate: pq.total ? pq.valid / pq.total : 0,    // spec §10.1 — điều kiện sống còn cho Zalo v2
     events_by_hour: events24h.rows,
