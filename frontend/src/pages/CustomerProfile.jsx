@@ -70,7 +70,14 @@ export default function CustomerProfile({ user }) {
         </div>
         <div className="grid kpis">
           <div><div className="kpi-l">Tổng đã mua</div><div className="kpi-v" style={{ fontSize: 17 }}>{fmtMoney(c.pos_purchased_amount)}</div></div>
-          <div><div className="kpi-l">Số đơn (thành công/tổng)</div><div className="kpi-v" style={{ fontSize: 17 }}>{c.pos_succeed_order_count}/{c.pos_order_count}</div></div>
+          {/* Hai con số đếm trên hai phạm vi khác nhau nên tách hẳn, không ghép thành "6/4" */}
+          <div><div className="kpi-l">Đơn thành công (trọn đời)</div>
+            <div className="kpi-v" style={{ fontSize: 17 }}>{Number(c.pos_succeed_order_count) || 0}</div></div>
+          <div><div className="kpi-l">Đơn Pancake còn trả về</div>
+            <div className="kpi-v" style={{ fontSize: 17 }}>{Number(c.pos_order_count) || 0}</div>
+            <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+              Gồm cả đơn chưa hoàn thành; đơn cũ hơn 31/3/2026 không lấy được qua API
+            </div></div>
           <div><div className="kpi-l">Mua gần nhất</div><div className="kpi-v" style={{ fontSize: 17 }}>{fmtDate(c.pos_last_order_at)}</div></div>
           <div><div className="kpi-l">Điểm thưởng</div><div className="kpi-v" style={{ fontSize: 17 }}>{Number(c.pos_reward_point)}</div></div>
           <div><div className="kpi-l">Hạng</div><div className="kpi-v" style={{ fontSize: 17 }}>{c.pos_level_id ?? '—'}</div></div>

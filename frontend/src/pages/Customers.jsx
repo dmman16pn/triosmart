@@ -96,7 +96,9 @@ export default function Customers({ user }) {
             <th>Số điện thoại</th>
             <th>Phân khúc</th>
             {isManagerUp && <th onClick={() => sortBy('purchased')} style={{ cursor: 'pointer' }}>Tổng đã mua {sort === 'purchased' && (dir === 'desc' ? '↓' : '↑')}</th>}
-            <th onClick={() => sortBy('orders')} style={{ cursor: 'pointer' }}>Số đơn {sort === 'orders' && (dir === 'desc' ? '↓' : '↑')}</th>
+            <th onClick={() => sortBy('orders')} style={{ cursor: 'pointer' }}
+              title="Tổng số đơn khách đã mua thành công, tính từ trước đến nay (theo số Pancake ghi trên hồ sơ khách)">
+              Đơn thành công {sort === 'orders' && (dir === 'desc' ? '↓' : '↑')}</th>
             <th onClick={() => sortBy('last_order')} style={{ cursor: 'pointer' }}>Mua gần nhất {sort === 'last_order' && (dir === 'desc' ? '↓' : '↑')}</th>
             <th>Nguồn</th>
           </tr></thead>
@@ -110,7 +112,9 @@ export default function Customers({ user }) {
                 <td className="mono">{r.phone_normalized ?? (r.phone_invalid ? '⚠️ SĐT lỗi' : '—')}</td>
                 <td><SegmentBadge s={r.rfm_segment} /></td>
                 {isManagerUp && <td>{fmtMoney(r.pos_purchased_amount)}</td>}
-                <td>{r.pos_succeed_order_count}/{r.pos_order_count}</td>
+                {/* Chỉ hiện số đơn THÀNH CÔNG trọn đời. Số đơn Pancake còn trả về được
+                    (giới hạn kỹ thuật, không phải thông tin kinh doanh) nằm trong hồ sơ chi tiết. */}
+                <td>{Number(r.pos_succeed_order_count) || 0}</td>
                 <td>{fmtDate(r.pos_last_order_at)}</td>
                 <td>{(r.identities ?? []).map((i, idx) => <SourceBadge key={idx} type={i.source_type} />)}</td>
               </tr>
