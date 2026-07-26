@@ -35,6 +35,14 @@ export const config = {
   webhookSecret: secret('WEBHOOK_SECRET'),
   // Secret của chat nằm trong URL → lọt vào access log; tách riêng để lộ nó không kéo theo POS.
   chatWebhookSecret: process.env.CHAT_WEBHOOK_SECRET || secret('WEBHOOK_SECRET'),
+  // ĐỐI CHIẾU THỰC TẾ 26/07/2026: Pancake POS NHẬN webhook_headers khi cấu hình nhưng
+  // KHÔNG gửi lại header đó — mọi request tới đều không có X-Trio-Secret. Buộc phải
+  // xác thực POS bằng secret trong đường dẫn, dùng secret riêng cho từng nguồn.
+  posUrlSecret: process.env.POS_URL_SECRET || null,
+  // ...và KHÔNG cho đổi webhook_url sau lần đăng ký đầu (PUT trả success nhưng vẫn gọi URL cũ),
+  // nên không có cách nào để Pancake mang secret theo. Phương án còn lại: chỉ chấp nhận
+  // webhook POS đến từ đúng IP máy chủ Pancake (danh sách cấu hình được, có cảnh báo khi đổi).
+  posWebhookIps: (process.env.POS_WEBHOOK_IPS ?? '').split(',').map(s => s.trim()).filter(Boolean),
   credentialKey: secret('CREDENTIAL_KEY'),
   // Khoá RIÊNG, không suy ra từ CREDENTIAL_KEY: lộ một khoá không được kéo theo khoá kia.
   jwtSecret: secret('JWT_SECRET'),
