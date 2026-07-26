@@ -11,10 +11,10 @@ export function createApiApp() {
   const app = express()
   app.use(express.json({ limit: '1mb' }))
 
+  app.get('/api/healthz', (_req, res) => res.json({ ok: true }))
   app.use('/api/auth', authRoutes)
   app.use('/api', customerRoutes)
   app.use('/api', adminRoutes)
-  app.get('/api/healthz', (_req, res) => res.json({ ok: true }))
 
   // Phục vụ frontend đã build + fallback SPA
   app.use(express.static(distDir))

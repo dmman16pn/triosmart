@@ -1,6 +1,7 @@
 import { query } from '../db.js'
 import { normalizePhone } from '../core/phone.js'
 import { findOrCreateCustomer } from '../core/matcher.js'
+import { recomputeCustomer } from '../core/rfm.js'
 
 export async function processChatEvent(connection, payload) {
   const type = payload.event_type
@@ -34,6 +35,7 @@ async function handleConversation(connection, p) {
       `UPDATE customer SET phone_normalized = COALESCE(phone_normalized, $2), updated_at = now()
        WHERE id = $1`, [customer.id, phone.normalized])
   }
+  if (customer.rfm_segment == null) await recomputeCustomer(customer.id)   // khách chat mới → 'Chưa mua'
 
   const convId = p.conversation?.id
   if (!convId) return
