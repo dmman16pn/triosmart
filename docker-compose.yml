@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: trio
+      POSTGRES_PASSWORD: trio_dev
+      POSTGRES_DB: triosmart
+    ports: ["5442:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  postgres_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: trio
+      POSTGRES_PASSWORD: trio_test
+      POSTGRES_DB: triosmart_test
+    ports: ["5434:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+volumes:
+  pgdata:

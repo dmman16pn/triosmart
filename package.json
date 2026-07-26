@@ -1,0 +1,25 @@
+{
+  "name": "triosmart",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "receiver": "node src/receiver/server.js",
+    "worker": "node src/worker/index.js",
+    "scheduler": "node src/scheduler/index.js",
+    "migrate": "node-pg-migrate up",
+    "migrate:test": "DATABASE_URL=$TEST_DATABASE_URL node-pg-migrate up",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.22.0",
+    "pg-boss": "^12.26.3"
+  },
+  "devDependencies": {
+    "nock": "^14.0.16",
+    "node-pg-migrate": "^9.0.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.10"
+  }
+}
