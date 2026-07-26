@@ -43,6 +43,10 @@ describe('processPosCustomer', () => {
     expect(rows[0].phone_invalid).toBe(true)
   })
 
+  it('payload không có id → throw', async () => {
+    await expect(processPosCustomer(conn, { name: 'X' })).rejects.toThrow(/thiếu id/)
+  })
+
   it('không có phone_numbers → vẫn tạo hồ sơ (chờ gộp sau)', async () => {
     await processPosCustomer(conn, { ...base, id: 'pos_c3', phone_numbers: [] })
     const { rows } = await testPool.query('SELECT count(*) FROM customer')

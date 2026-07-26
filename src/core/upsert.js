@@ -3,6 +3,7 @@ import { normalizePhone } from './phone.js'
 import { findOrCreateCustomer } from './matcher.js'
 
 export async function upsertCustomerFromPos(connection, pc) {
+  if (pc?.id == null) throw new Error('customer payload thiếu id')
   const phones = Array.isArray(pc.phone_numbers) ? pc.phone_numbers : []
   const primary = phones.length ? normalizePhone(phones[0]) : { normalized: null, valid: false }
   const altPhones = phones.slice(1).map(p => normalizePhone(p).normalized).filter(Boolean)
