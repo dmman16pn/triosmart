@@ -22,10 +22,27 @@ export async function upsertCustomerFromPos(connection, pc) {
   const primary = phones.length ? normalizePhone(phones[0]) : { normalized: null, valid: false }
   const altPhones = phones.slice(1).map(p => normalizePhone(p).normalized).filter(Boolean)
 
-  const customer = await findOrCreateCustomer({
+  let customer = await findOrCreateCustomer({
     phoneNormalized: primary.normalized, fbId: pc.fb_id ?? null, name: pc.name ?? null,
     sourceType: 'pos', connectionId: connection.id, externalId: String(pc.id)
   })
+
+  // Khách này đã có hồ sơ (khớp qua external_id/fb_id) NHƯNG số điện thoại vừa đổi thành
+  // số đang thuộc về hồ sơ khác → UPDATE sẽ vỡ ràng buộc UNIQUE và mất luôn sự kiện webhook.
+  // Cùng số điện thoại là cùng một người (spec §7.2, độ tin cậy 100) → gộp, đúng như lúc tạo mới.
+  if (primary.normalized) {
+    const { rows: owners } = await query(
+      'SELECT id FROM customer WHERE phone_normalized = $1 AND id <> $2 LIMIT 1',
+      [primary.normalized, customer.id])
+    if (owners.length) {
+      const { mergeCustomers } = await import('./merge.js')   // nạp trễ: merge.js dùng lại upsert
+      // Giữ hồ sơ đang sở hữu số điện thoại (đã được các hồ sơ khác tham chiếu qua SĐT)
+      const keepId = owners[0].id, otherId = customer.id
+      await mergeCustomers(keepId, otherId)
+      const { rows: [merged] } = await query('SELECT * FROM customer WHERE id=$1', [keepId])
+      customer = merged
+    }
+  }
 
   // Xung đột theo TỪNG TRƯỜNG (spec §7.6): Trio vừa ghi trong 60 giây → Trio thắng trường đó.
   const { rows: recent } = await query(
