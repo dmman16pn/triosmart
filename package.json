@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "api": "node src/api/server.js",
     "receiver": "node src/receiver/server.js",
     "worker": "node src/worker/index.js",
     "scheduler": "node src/scheduler/index.js",
