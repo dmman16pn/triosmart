@@ -38,11 +38,13 @@ export async function upsertCustomerFromPos(connection, pc) {
     }
     for (const f of CONFLICT_FIELDS) {
       if (!held.has(f) || incoming[f] === undefined) continue
+      const oldJ = JSON.stringify(currentOf[f] ?? null), newJ = JSON.stringify(incoming[f] ?? null)
+      if (oldJ === newJ) continue   // giá trị giống nhau (echo lọt lưới) → không phải xung đột, đừng nhiễu log
       // Ghi lại cả hai giá trị (spec: "kèm giá trị của cả hai bên")
       await query(
         `INSERT INTO audit_log (customer_id, field, old_value, new_value, source)
          VALUES ($1, $2, $3, $4, 'conflict')`,
-        [customer.id, f, JSON.stringify(currentOf[f] ?? null), JSON.stringify(incoming[f] ?? null)])
+        [customer.id, f, oldJ, newJ])
     }
   }
   const keep = f => held.has(f)   // true → truyền NULL để COALESCE giữ giá trị Trio

@@ -7,12 +7,26 @@ const HASH_FIELDS = ['name', 'phone_numbers', 'emails', 'gender', 'date_of_birth
 export function computeCustomerHash(fields) {
   const norm = {}
   for (const k of HASH_FIELDS) {
-    if (fields?.[k] === undefined || fields?.[k] === null) continue
-    norm[k] = Array.isArray(fields[k]) && k === 'phone_numbers'
-      ? [...fields[k]].map(String).sort()
-      : fields[k]
+    let v = fields?.[k]
+    // POS gửi address trong shop_customer_addresses — quy về một key trước khi hash
+    if (k === 'address' && v == null) v = fields?.shop_customer_addresses
+    if (v === undefined || v === null) continue
+    if (Array.isArray(v)) {
+      if (v.length === 0) continue                       // [] và thiếu trường coi như nhau
+      v = k === 'phone_numbers' ? [...v].map(String).sort() : v
+    }
+    if (v instanceof Date) v = v.toISOString().slice(0, 10)
+    if (k === 'date_of_birth' && typeof v === 'string') v = v.slice(0, 10)
+    norm[k] = v
   }
-  return crypto.createHash('sha256').update(JSON.stringify(norm, Object.keys(norm).sort())).digest('hex')
+  return crypto.createHash('sha256').update(stableStringify(norm)).digest('hex')
+}
+
+// JSON.stringify với replacer mảng lọc key ở MỌI cấp (làm rỗng object lồng nhau) — tự viết cho chuẩn.
+function stableStringify(o) {
+  if (o === null || typeof o !== 'object') return JSON.stringify(o)
+  if (Array.isArray(o)) return '[' + o.map(stableStringify).join(',') + ']'
+  return '{' + Object.keys(o).sort().map(k => JSON.stringify(k) + ':' + stableStringify(o[k])).join(',') + '}'
 }
 
 export async function markSent(hash) {
