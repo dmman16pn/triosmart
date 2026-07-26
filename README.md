@@ -85,3 +85,36 @@ Tiến trình ghi vào `sync_log` (count_ok / count_fail từng entity).
 3. Không bao giờ tự gộp hồ sơ khi confidence < 90 — trùng tên không SĐT vào `merge_queue`.
 4. SĐT không hợp lệ vẫn giữ (`phone_raw` + `phone_invalid`), không vứt.
 5. Credential mã hóa khi lưu, không ghi log, không bao giờ trả về trình duyệt.
+
+## Cập nhật trạng thái (Plan 2 + Plan 3 hoàn thành)
+
+- ✅ Plan 2: ghi ngược POS (writeback), echo guard, xung đột theo trường 60s, gộp/tách + hoàn tác 24h, backfill Chat, retry pending_push
+- ✅ Plan 3: API + JWT + phân quyền 3 vai trò, RFM engine cấu hình được, retention, cảnh báo lỗi 20%/5phút, frontend React 12 màn hình
+
+### Chạy đầy đủ hệ thống
+
+```bash
+docker compose up -d && set -a; source .env; set +a
+npm run migrate
+ADMIN_EMAIL=admin@cty.vn ADMIN_PASSWORD=matkhau node scripts/seedAdmin.js
+(cd frontend && npm install && npm run build)
+npm run receiver &   # :3001 — nhận webhook Pancake
+npm run worker &     # xử lý sự kiện + retry push + cảnh báo
+npm run scheduler &  # nạp bù mỗi giờ + RFM đêm + dọn dữ liệu
+npm run api &        # :3002 — API + giao diện web
+```
+
+Mở http://localhost:3002 và đăng nhập.
+
+### Kiểm thử
+
+```bash
+npm test              # 118 unit/integration test (DB test riêng :5434)
+node scripts/e2e.mjs  # 21 kiểm tra đầu-cuối trên hệ thống thật
+```
+
+### Ghi chú nghiệp vụ cần chủ đầu tư chốt (đã ghi nhận khi build)
+
+1. RFM: bảng spec §7.7 không phủ trường hợp `succeed>=2` nhưng mua gần (<60 ngày, chưa đủ 3 đơn) → hệ tạm gán "Chưa phân loại" (hiển thị trung thực). Chốt lại ngưỡng ở màn Cấu hình.
+2. Manager xem audit "chỉ nhóm mình": v1 dùng proxy connection_ids giao nhau; manager chưa gán nguồn → thấy tất cả.
+3. Webhook Chat xác thực bằng secret trong URL đăng ký (`/hooks/chat/<secret>`) vì Pancake Chat không hỗ trợ custom header.
