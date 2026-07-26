@@ -109,8 +109,10 @@ Mở http://localhost:3002 và đăng nhập.
 ### Kiểm thử
 
 ```bash
-npm test              # 118 unit/integration test (DB test riêng :5434)
-node scripts/e2e.mjs  # 21 kiểm tra đầu-cuối trên hệ thống thật
+npm test              # 140 unit/integration test (DB test riêng :5434), gồm tests/security.test.js
+node scripts/e2e.mjs  # 22 kiểm tra đầu-cuối — TỪ CHỐI chạy nếu CSDL có >100 khách (nó TRUNCATE)
+python3 scripts/uiTest.py    # quét 12 trang bằng Playwright
+python3 scripts/uiStress.py  # 60 lượt điều hướng loạn xạ, bắt lỗi trắng trang
 ```
 
 ### Ghi chú nghiệp vụ cần chủ đầu tư chốt (đã ghi nhận khi build)
@@ -118,3 +120,59 @@ node scripts/e2e.mjs  # 21 kiểm tra đầu-cuối trên hệ thống thật
 1. RFM: bảng spec §7.7 không phủ trường hợp `succeed>=2` nhưng mua gần (<60 ngày, chưa đủ 3 đơn) → hệ tạm gán "Chưa phân loại" (hiển thị trung thực). Chốt lại ngưỡng ở màn Cấu hình.
 2. Manager xem audit "chỉ nhóm mình": v1 dùng proxy connection_ids giao nhau; manager chưa gán nguồn → thấy tất cả.
 3. Webhook Chat xác thực bằng secret trong URL đăng ký (`/hooks/chat/<secret>`) vì Pancake Chat không hỗ trợ custom header.
+
+
+---
+
+## Triển khai production (trio.shinsulab.com)
+
+Chạy trên VPS `152.53.211.170`, Cloudflare đứng trước làm HTTPS/CDN/chống DDoS.
+
+| Thành phần | Vị trí |
+|---|---|
+| Mã nguồn | `/root/triosmart/app` (bản trước: `app_old`) |
+| Cấu hình bí mật | `/root/triosmart/app/.env` (chmod 600) |
+| PostgreSQL | container `trio-postgres`, chỉ mở `127.0.0.1:5441`, volume `trio_pgdata` |
+| Tiến trình | pm2: `trio-api` :3002, `trio-receiver` :3011, `trio-worker`, `trio-scheduler` |
+| Nginx | `/etc/nginx/sites-available/trio.shinsulab.com` |
+| Dải IP Cloudflare | `/etc/nginx/conf.d/cloudflare-realip.conf` + `/etc/nginx/snippets/trio-cloudflare-allow.inc` |
+| Backup | `/usr/local/bin/trio-backup-r2.sh`, cron 02:10 → `r2/ksss-backups/triosmart/`, giữ 30 ngày |
+
+### Quy trình cập nhật
+
+```bash
+# máy local
+COPYFILE_DISABLE=1 tar czf trio-app.tgz --exclude=node_modules --exclude=.git \
+  --exclude=backups --exclude=.env --exclude='frontend/node_modules' -C .. triosmart
+scp trio-app.tgz root@152.53.211.170:/root/triosmart/
+
+# trên VPS
+cd /root/triosmart && rm -rf app_new && mkdir app_new
+tar xzf trio-app.tgz --strip-components=1 -C app_new && find app_new -name '._*' -delete
+cp -r app/node_modules app_new/node_modules && cp app/.env app_new/.env && chmod 600 app_new/.env
+find app_new/src app_new/scripts -name '*.js' -print0 | xargs -0 -n1 node --check   # BẮT BUỘC
+rm -rf app_old && mv app app_old && mv app_new app
+pm2 restart trio-api trio-worker trio-receiver trio-scheduler --update-env
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3002/api/healthz    # phải 200
+```
+
+### Lưu ý bảo mật đã cài đặt
+
+- App **từ chối khởi động** nếu `JWT_SECRET`/`CREDENTIAL_KEY`/`WEBHOOK_SECRET` còn là giá trị mẫu.
+- Nginx chỉ nhận kết nối **từ dải IP Cloudflare** (kiểm bằng `$realip_remote_addr`, không phải header).
+- Node chỉ nghe `127.0.0.1` khi `NODE_ENV=production`; Postgres không mở ra ngoài.
+- `/hooks/` **tắt access log** vì secret webhook chat nằm trong URL.
+- Đổi `CREDENTIAL_KEY` phải chạy `OLD_CREDENTIAL_KEY=<khoá cũ> node scripts/rotateCredentialKey.js`,
+  nếu không toàn bộ credential Pancake trong CSDL không giải mã được nữa.
+
+### Điểm cần chủ đầu tư quyết định thêm (cấu hình Cloudflare cấp zone shinsulab.com)
+
+Ba thiết lập dưới đây áp cho **toàn bộ** tên miền shinsulab.com nên chưa tự đổi:
+`SSL mode = Full` (nên chuyển **Full (strict)**), `Always Use HTTPS = off` (nên **on**),
+`Minimum TLS = 1.0` (nên **1.2**).
+
+### Giới hạn dữ liệu Pancake đã xác minh (26/07/2026)
+
+API POS `/orders` **chỉ trả về đơn từ ~31/03/2026 trở đi** (17.134 đơn) — lịch sử cũ hơn không lấy
+được qua API. Tổng doanh số trọn đời chỉ còn ở dạng cộng dồn `purchased_amount` trên hồ sơ khách
+(42,2 tỉ / 91.747 đơn). Dashboard hiển thị **cả hai** con số, có chú thích nguồn gốc.
