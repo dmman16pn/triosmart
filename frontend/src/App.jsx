@@ -13,6 +13,7 @@ import Customers from './pages/Customers.jsx'
 import CustomerProfile from './pages/CustomerProfile.jsx'
 import Segments from './pages/Segments.jsx'
 import MyWork from './pages/MyWork.jsx'
+import ChangePassword from './pages/ChangePassword.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -27,6 +28,10 @@ export default function App() {
 
   if (!ready) return null
   if (!user) return <Login onLogin={u => { setUser(u); nav('/') }} />
+  // Mật khẩu khởi tạo do người khác đặt → phải đổi trước khi dùng bất kỳ chức năng nào
+  if (user.must_change_password) {
+    return <ChangePassword forced onDone={() => { setUser(null) }} />
+  }
 
   const isAdmin = user.role === 'admin'
   const isManagerUp = ['admin', 'manager'].includes(user.role)
@@ -59,6 +64,7 @@ export default function App() {
 
         <div className="nav-group">Tài khoản</div>
         <div className="nav-item" style={{ fontSize: 12.5 }}>{user.name} · <span className="badge b-mute">{user.role}</span></div>
+        <NavLink to="/change-password" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>🔑 Đổi mật khẩu</NavLink>
         <button className="nav-item btn" style={{ width: '100%', border: 'none', textAlign: 'left' }} onClick={logout}>🚪 Đăng xuất</button>
       </aside>
 
@@ -75,6 +81,7 @@ export default function App() {
           <Route path="/connections" element={isAdmin ? <Connections /> : <Navigate to="/customers" />} />
           <Route path="/users" element={isAdmin ? <Users /> : <Navigate to="/customers" />} />
           <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/customers" />} />
+          <Route path="/change-password" element={<ChangePassword onDone={() => setUser(null)} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

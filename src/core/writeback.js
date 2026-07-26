@@ -66,8 +66,17 @@ export async function updateCustomerFields(customerId, changes, { userId = null 
       }
     } else if (TRIO_OWNED.has(key)) {
       if (key === 'custom_fields') {
-        localParams.push(JSON.stringify(value))
+        // custom_fields do người dùng gửi KHÔNG được đụng khoá nhận diện: ghi đè fb_id/alt_phones
+        // sẽ khiến matcher gắn nhầm danh tính chat của người khác vào hồ sơ này (§7.2).
+        const IDENTITY_KEYS = ['fb_id', 'psid', 'alt_phones', 'pos_customer_id']
+        const safe = Object.fromEntries(
+          Object.entries(value ?? {}).filter(([k]) => !IDENTITY_KEYS.includes(k)))
+        for (const k of Object.keys(value ?? {})) if (IDENTITY_KEYS.includes(k)) skipped.push(`custom_fields.${k}`)
+        if (Object.keys(safe).length === 0) continue
+        localParams.push(JSON.stringify(safe))
         localSets.push(`custom_fields = custom_fields || $${++p}::jsonb`)
+        auditRows.push([key, cur[key], safe])
+        continue
       } else set(key, value)
       auditRows.push([key, cur[key], value])
     } else {

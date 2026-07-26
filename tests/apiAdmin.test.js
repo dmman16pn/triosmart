@@ -106,16 +106,23 @@ describe('API admin', () => {
 
   it('users CRUD: tạo, trùng email 409, khóa tài khoản', async () => {
     const token = await seedUser('admin')
+    const GOOD_PW = 'Trio2026xyz'
     const create = await request(app).post('/api/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ email: 'nv1@t.vn', password: 'mk123456', name: 'NV1', role: 'staff' })
+      .send({ email: 'nv1@t.vn', password: GOOD_PW, name: 'NV1', role: 'staff' })
     expect(create.status).toBe(201)
     expect(create.body.password_hash).toBeUndefined()
 
     const dup = await request(app).post('/api/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ email: 'nv1@t.vn', password: 'mk123456', name: 'NV1', role: 'staff' })
+      .send({ email: 'nv1@t.vn', password: GOOD_PW, name: 'NV1', role: 'staff' })
     expect(dup.status).toBe(409)
+
+    // Mật khẩu yếu bị từ chối ngay (app sắp mở ra internet, không được để mật khẩu dò được)
+    const weak = await request(app).post('/api/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ email: 'nv2@t.vn', password: 'matkhau123', name: 'NV2', role: 'staff' })
+    expect(weak.status).toBe(400)
 
     const lock = await request(app).patch(`/api/users/${create.body.id}`)
       .set('Authorization', `Bearer ${token}`).send({ active: false })

@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { query } from '../db.js'
-import { requireAuth, requireRole } from './middleware.js'
+import { requireAuth, requireRole, clearUserCache } from './middleware.js'
 import { encryptCredential, decryptCredential } from '../core/credentials.js'
-import { hashPassword } from '../core/password.js'
+import { hashPassword, assertStrongPassword } from '../core/password.js'
 import { PosClient } from '../pancake/posClient.js'
 import { ChatClient } from '../pancake/chatClient.js'
 import { initialSyncPos } from '../scheduler/initialSync.js'
@@ -83,7 +83,7 @@ adminRoutes.post('/connections/:id/sync', requireRole('admin'), async (req, res)
 
 /* ---------- A4 — Nhật ký đồng bộ + sự kiện webhook ---------- */
 adminRoutes.get('/sync-logs', requireRole('admin', 'manager'), async (req, res) => {
-  const limit = Math.min(200, Number(req.query.limit) || 50)
+  const limit = Math.min(200, Math.max(1, Math.floor(Number(req.query.limit) || 50)))
   const params = [], where = []
   if (req.query.connection_id) { params.push(req.query.connection_id); where.push(`connection_id=$${params.length}`) }
   const { rows } = await query(
@@ -93,7 +93,7 @@ adminRoutes.get('/sync-logs', requireRole('admin', 'manager'), async (req, res) 
 })
 
 adminRoutes.get('/webhook-events', requireRole('admin', 'manager'), async (req, res) => {
-  const limit = Math.min(200, Number(req.query.limit) || 50)
+  const limit = Math.min(200, Math.max(1, Math.floor(Number(req.query.limit) || 50)))
   const params = [], where = []
   if (req.query.status) { params.push(req.query.status); where.push(`status=$${params.length}`) }
   if (req.query.source) { params.push(req.query.source); where.push(`source=$${params.length}`) }
@@ -105,9 +105,11 @@ adminRoutes.get('/webhook-events', requireRole('admin', 'manager'), async (req, 
 
 // A4 — chạy lại sự kiện lỗi
 adminRoutes.post('/webhook-events/:id/retry', requireRole('admin', 'manager'), async (req, res) => {
+  // CHỈ chạy lại sự kiện 'error' (đã qua xác thực secret). Không bao giờ chạy lại 'skipped':
+  // đó là payload người lạ gửi vào, admin bấm nhầm là thi hành lệnh của kẻ tấn công.
   const { rows } = await query(
     `UPDATE webhook_event SET status='pending', error=NULL, processed_at=NULL
-     WHERE id=$1 AND status IN ('error','skipped') RETURNING id`, [req.params.id])
+     WHERE id=$1 AND status='error' RETURNING id`, [req.params.id])
   if (!rows.length) return res.status(404).json({ error: 'Sự kiện không tồn tại hoặc không ở trạng thái lỗi' })
   res.json({ ok: true })
 })
@@ -146,7 +148,7 @@ adminRoutes.post('/merge/undo/:auditId', requireRole('admin', 'manager'), async 
 
 /* ---------- A7 — Nhật ký thao tác (CHỈ ĐỌC, không có DELETE — spec) ---------- */
 adminRoutes.get('/audit-logs', requireRole('admin', 'manager'), async (req, res) => {
-  const limit = Math.min(200, Number(req.query.limit) || 50)
+  const limit = Math.min(200, Math.max(1, Math.floor(Number(req.query.limit) || 50)))
   const params = [], where = []
   if (req.query.customer_id) { params.push(req.query.customer_id); where.push(`a.customer_id=$${params.length}`) }
   // Manager chỉ xem nhóm mình (spec §3.2) — v1 dùng proxy: user có connection_ids giao nhau.
@@ -185,10 +187,12 @@ adminRoutes.post('/users', requireRole('admin'), async (req, res) => {
   if (!email || !password || !name || !['admin', 'manager', 'staff'].includes(role)) {
     return res.status(400).json({ error: 'Thiếu email/password/name/role hợp lệ' })
   }
+  try { assertStrongPassword(password) }
+  catch (e) { return res.status(400).json({ error: e.message }) }
   try {
     const { rows: [u] } = await query(
-      `INSERT INTO app_user (email, password_hash, name, role, connection_ids)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO app_user (email, password_hash, name, role, connection_ids, must_change_password)
+       VALUES ($1,$2,$3,$4,$5,true) RETURNING *`,
       [String(email).toLowerCase(), hashPassword(String(password)), name, role, connection_ids ?? []])
     res.status(201).json(publicUser(u))
   } catch (e) {
@@ -199,15 +203,40 @@ adminRoutes.post('/users', requireRole('admin'), async (req, res) => {
 
 adminRoutes.patch('/users/:id', requireRole('admin'), async (req, res) => {
   const { name, role, connection_ids, active, password } = req.body ?? {}
+  if (role != null && !['admin', 'manager', 'staff'].includes(role)) {
+    return res.status(400).json({ error: 'role không hợp lệ' })
+  }
+  if (password != null) {
+    try { assertStrongPassword(password) }
+    catch (e) { return res.status(400).json({ error: e.message }) }
+  }
+  // Không tự khoá/hạ quyền chính mình (tránh mất quyền do bấm nhầm)
+  if (req.params.id === req.user.sub && (active === false || (role && role !== 'admin'))) {
+    return res.status(400).json({ error: 'Không thể tự khoá hoặc tự hạ quyền tài khoản đang dùng' })
+  }
+  // Luôn giữ ít nhất 1 admin đang hoạt động, nếu không cả hệ thống không ai vào quản trị được
+  if (active === false || (role && role !== 'admin')) {
+    const { rows: [t] } = await query('SELECT role, active FROM app_user WHERE id=$1', [req.params.id])
+    if (t?.role === 'admin' && t.active) {
+      const { rows: [c] } = await query(
+        `SELECT count(*)::int AS n FROM app_user WHERE role='admin' AND active=true`)
+      if (c.n <= 1) return res.status(400).json({ error: 'Phải còn ít nhất một admin đang hoạt động' })
+    }
+  }
   const { rows: [u] } = await query(
     `UPDATE app_user SET
        name = COALESCE($2, name), role = COALESCE($3, role),
        connection_ids = COALESCE($4, connection_ids), active = COALESCE($5, active),
-       password_hash = COALESCE($6, password_hash)
+       password_hash = COALESCE($6, password_hash),
+       must_change_password = CASE WHEN $6 IS NOT NULL THEN true ELSE must_change_password END,
+       -- Đổi mật khẩu hoặc khoá tài khoản → thu hồi ngay mọi phiên đang mở
+       token_valid_from = CASE WHEN $6 IS NOT NULL OR $5 = false
+         THEN now() + interval '1 second' ELSE token_valid_from END
      WHERE id=$1 RETURNING *`,
     [req.params.id, name ?? null, role ?? null, connection_ids ?? null, active ?? null,
      password ? hashPassword(String(password)) : null])
   if (!u) return res.status(404).json({ error: 'Không tìm thấy' })
+  clearUserCache()
   res.json(publicUser(u))
 })
 

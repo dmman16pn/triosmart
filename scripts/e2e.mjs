@@ -12,6 +12,7 @@ import { hashPassword } from '../src/core/password.js'
 const API = 'http://localhost:3002'
 const HOOK = 'http://localhost:3001'
 const SECRET = process.env.WEBHOOK_SECRET
+const CHAT_SECRET = process.env.CHAT_WEBHOOK_SECRET ?? process.env.WEBHOOK_SECRET
 let failures = 0
 const results = []
 
@@ -30,6 +31,16 @@ async function jfetch(path, { method = 'GET', body, token } = {}) {
 }
 
 // ---------- chuẩn bị ----------
+// CHẶN AN TOÀN: script này TRUNCATE toàn bộ bảng. Không bao giờ được chạy trên CSDL
+// đang chứa dữ liệu thật (đã từng xoá nhầm 89.786 hồ sơ khách).
+{
+  const { rows: [c] } = await pool.query('SELECT count(*)::int AS n FROM customer')
+  if (c.n > 100 && process.env.E2E_FORCE !== 'yes-xoa-sach-du-lieu') {
+    console.error(`\n⛔ DỪNG: CSDL đang có ${c.n} khách — e2e sẽ XOÁ SẠCH.`)
+    console.error('   Chạy trên CSDL test, hoặc đặt E2E_FORCE=yes-xoa-sach-du-lieu nếu thật sự muốn xoá.\n')
+    await pool.end(); process.exit(1)
+  }
+}
 console.log('[e2e] reset DB dev + seed admin')
 await query(`TRUNCATE webhook_event, sync_log, audit_log, merge_queue, echo_guard, conversation,
   "order", customer_identity, customer, connection, pending_push, app_user, alert CASCADE`)
@@ -92,7 +103,7 @@ try {
   check('Webhook POS order trả 200', r.status === 200)
 
   // ---------- 4. bắn webhook Chat (secret trong URL) trùng SĐT → phải tự ghép ----------
-  r = await fetch(`${HOOK}/hooks/chat/${SECRET}`, {
+  r = await fetch(`${HOOK}/hooks/chat/${CHAT_SECRET}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'messaging', page_id: 'page_e2e',
@@ -166,8 +177,9 @@ try {
   await sleep(1500)
   const skipped = await query(`SELECT count(*)::int AS n FROM webhook_event WHERE status='skipped'`)
   const hacker = await query(`SELECT count(*)::int AS n FROM customer WHERE name='Giả mạo'`)
-  check('Webhook sai secret: 200 nhưng skipped, KHÔNG tạo dữ liệu',
-    r.status === 200 && skipped.rows[0].n === 1 && hacker.rows[0].n === 0)
+  // Sai secret: 401 và KHÔNG ghi bất cứ thứ gì vào DB (chống bơm dữ liệu rác làm đầy ổ đĩa)
+  check('Webhook sai secret: 401, KHÔNG ghi DB, KHÔNG tạo khách',
+    r.status === 401 && skipped.rows[0].n === 0 && hacker.rows[0].n === 0)
 } catch (e) {
   check('E2E chạy trọn vẹn không văng lỗi', false, e.stack)
 } finally {

@@ -5,7 +5,9 @@ import json, sys, time
 from playwright.sync_api import sync_playwright
 
 BASE = 'http://localhost:3002'
-EMAIL, PASSWORD = 'admin@triosmart.local', '123456'
+import os
+EMAIL = os.environ.get('TRIO_EMAIL', 'admin@triosmart.local')
+PASSWORD = os.environ.get('TRIO_PASSWORD', 'TrioLocal2026dev')
 SHOT_DIR = '/private/tmp/claude-501/-Users-man-Downloads-Phuong/c8d5e9a4-99e2-4b5b-97c1-dd99207f1395/scratchpad'
 
 issues = []          # (page, kind, detail)
@@ -138,7 +140,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
         page.fill('.modal input.inp >> nth=0', staff_email)
         page.fill('.modal input.inp >> nth=1', 'Staff UI')
-        page.fill('.modal input[type=password]', 'staffmk123')
+        page.fill('.modal input[type=password]', 'StaffTest2026x')
         page.click('.modal button:has-text("Lưu")')
         page.wait_for_timeout(800)
         if staff_email not in page.inner_text('body'):
@@ -162,9 +164,22 @@ with sync_playwright() as p:
         page.click('button:has-text("Đăng xuất")')
         page.wait_for_timeout(600)
         page.fill('input[type=email]', staff_email)
-        page.fill('input[type=password]', 'staffmk123')
+        page.fill('input[type=password]', 'StaffTest2026x')
         page.click('button:has-text("Đăng nhập")')
         page.wait_for_timeout(1200)
+        # Tài khoản mới BẮT BUỘC đổi mật khẩu trước khi vào app (bảo mật)
+        if 'Đổi mật khẩu' in page.inner_text('body'):
+            page.fill('input[autocomplete=current-password]', 'StaffTest2026x')
+            page.fill('input[autocomplete=new-password] >> nth=0', 'StaffMoi2026yz')
+            page.fill('input[autocomplete=new-password] >> nth=1', 'StaffMoi2026yz')
+            page.click('button:has-text("Đổi mật khẩu")')
+            page.wait_for_timeout(1200)
+            page.fill('input[type=email]', staff_email)
+            page.fill('input[type=password]', 'StaffMoi2026yz')
+            page.click('button:has-text("Đăng nhập")')
+            page.wait_for_timeout(1200)
+        else:
+            note('STAFF', 'tài khoản mới KHÔNG bị bắt đổi mật khẩu khởi tạo')
         body = page.inner_text('body')
         if 'Danh sách khách' not in body:
             note('STAFF', 'staff đăng nhập không vào được app')

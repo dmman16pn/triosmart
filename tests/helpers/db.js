@@ -1,16 +1,16 @@
 import pg from 'pg'
-
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
-  || 'postgres://trio:trio_test@localhost:5434/triosmart_test'
-process.env.WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'test-secret'
-process.env.CREDENTIAL_KEY = process.env.CREDENTIAL_KEY || 'test-key'
+import './../setupEnv.js'              // đặt khoá test trước khi config.js được nạp
+import { resetRateLimit } from '../../src/api/rateLimit.js'
+import { clearUserCache } from '../../src/api/middleware.js'
 
 export const testPool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
 
 export async function resetDb() {
+  resetRateLimit()      // bộ đếm chống dò mật khẩu nằm trong RAM, không bị TRUNCATE
+  clearUserCache()      // cache vai trò 30s — test tạo lại user cùng id phải thấy ngay
   await testPool.query(`TRUNCATE webhook_event, sync_log, audit_log, merge_queue,
     echo_guard, conversation, "order", customer_identity, customer, connection,
-    pending_push, app_user, alert, setting CASCADE`)
+    pending_push, app_user, alert, setting, login_attempt CASCADE`)
   await testPool.query(`INSERT INTO setting (key, value) VALUES
     ('rfm', '{"vip_amount":5000000,"vip_days":30,"loyal_orders":3,"loyal_days":60,"risk_days":120,"gone_days":120,"new_days":30}'),
     ('alert', '{"email":"","error_rate_pct":20,"window_minutes":5}'),

@@ -5,7 +5,8 @@ services:
       POSTGRES_USER: trio
       POSTGRES_PASSWORD: trio_dev
       POSTGRES_DB: triosmart
-    ports: ["5442:5432"]
+    # CHỈ bind localhost — "5442:5432" mở ra 0.0.0.0, ai cũng psql thẳng vào CSDL khách hàng
+    ports: ["127.0.0.1:5442:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
   postgres_test:
     image: postgres:16-alpine
@@ -13,7 +14,7 @@ services:
       POSTGRES_USER: trio
       POSTGRES_PASSWORD: trio_test
       POSTGRES_DB: triosmart_test
-    ports: ["5434:5432"]
+    ports: ["127.0.0.1:5434:5432"]
     tmpfs: [/var/lib/postgresql/data]
 volumes:
   pgdata:

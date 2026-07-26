@@ -4,12 +4,39 @@ import express from 'express'
 import { authRoutes } from './authRoutes.js'
 import { customerRoutes } from './customerRoutes.js'
 import { adminRoutes } from './adminRoutes.js'
+import { rateLimit, clientIp } from './rateLimit.js'
 
 const distDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../frontend/dist')
 
 export function createApiApp() {
   const app = express()
+  app.disable('x-powered-by')
+
+  // Security headers (tự viết, không thêm dependency): CSP chặn script lạ nếu có XSS,
+  // frame-ancestors chặn clickjacking lên các nút Gộp/Chạy lại của admin.
+  app.use((_req, res, next) => {
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data:; connect-src 'self'; font-src 'self' data:; " +
+      "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    next()
+  })
+
   app.use(express.json({ limit: '1mb' }))
+
+  // Dữ liệu khách không được nằm lại trong bất kỳ proxy/CDN nào (app chạy sau Cloudflare)
+  app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next() })
+
+  // Trần chung cho toàn API — chặn quét/rút dữ liệu hàng loạt bằng token hợp lệ
+  app.use('/api', rateLimit({
+    limit: 600, windowMs: 60_000,
+    keyFn: req => `api:${clientIp(req)}`
+  }))
 
   app.get('/api/healthz', (_req, res) => res.json({ ok: true }))
   app.use('/api/auth', authRoutes)

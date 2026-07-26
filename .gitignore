@@ -2,3 +2,7 @@ node_modules/
 .env
 *.log
 frontend/dist/
+
+backups/
+deploy/*.local
+.env.production

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { query } from '../db.js'
-import { requireAuth, requireRole, staffConnectionIds, assertCustomerInScope } from './middleware.js'
+import { requireAuth, requireRole, staffConnectionIds, assertCustomerInScope, intersectScope } from './middleware.js'
 import { updateCustomerFields } from '../core/writeback.js'
 import { normalizePhone } from '../core/phone.js'
 import { SEGMENTS } from '../core/rfm.js'
@@ -11,12 +11,14 @@ customerRoutes.use(requireAuth)
 // U1 — danh sách khách: tìm kiếm (tên, SĐT chính + số phụ), lọc, phân trang server
 customerRoutes.get('/customers', async (req, res) => {
   const { q, segment, assigned, connection_id } = req.query
-  const page = Math.max(1, Number(req.query.page) || 1)
-  const pageSize = Math.min(100, Number(req.query.page_size) || 25)
-  const sortCol = {
+  const page = Math.max(1, Math.floor(Number(req.query.page) || 1))
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(req.query.page_size) || 25)))
+  const SORTS = {
     name: 'name', purchased: 'pos_purchased_amount', orders: 'pos_succeed_order_count',
     last_order: 'pos_last_order_at', created: 'created_at'
-  }[req.query.sort] ?? 'updated_at'
+  }
+  // hasOwn: nếu không, ?sort=constructor lấy trúng key kế thừa từ Object.prototype → SQL rác, 500
+  const sortCol = Object.hasOwn(SORTS, String(req.query.sort ?? '')) ? SORTS[req.query.sort] : 'updated_at'
   const dir = req.query.dir === 'asc' ? 'ASC' : 'DESC'
 
   const where = [], params = []
@@ -35,7 +37,9 @@ customerRoutes.get('/customers', async (req, res) => {
   else if (assigned) where.push(`assigned_user_id = ${p(assigned)}`)
 
   const scope = await staffConnectionIds(req)
-  const scopeIds = connection_id ? [connection_id] : scope
+  // GIAO phạm vi, không thay thế: trước đây ?connection_id= của client ghi đè phạm vi staff
+  // → nhân viên xem được trọn danh sách khách của nguồn không được gán.
+  const scopeIds = intersectScope(scope, connection_id)
   if (scopeIds) {
     where.push(`id IN (SELECT customer_id FROM customer_identity WHERE connection_id = ANY(${p(scopeIds)}))`)
   }
@@ -46,7 +50,8 @@ customerRoutes.get('/customers', async (req, res) => {
     `SELECT id, name, phone_normalized, phone_invalid, rfm_segment, assigned_user_id,
             pos_purchased_amount, pos_succeed_order_count, pos_order_count, pos_last_order_at,
             (SELECT json_agg(json_build_object('source_type', source_type, 'connection_id', connection_id))
-             FROM customer_identity i WHERE i.customer_id = customer.id) AS identities
+             FROM customer_identity i WHERE i.customer_id = customer.id
+               ${scopeIds ? `AND i.connection_id = ANY(${p(scopeIds)})` : ''}) AS identities
      FROM customer ${whereSql}
      ORDER BY ${sortCol} ${dir} NULLS LAST LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`, params)
   res.json({ rows: rows.rows, total: total.rows[0].n, page, page_size: pageSize })
@@ -115,11 +120,23 @@ customerRoutes.patch('/customers/:id', async (req, res) => {
   if (!await assertCustomerInScope(req, req.params.id)) {
     return res.status(403).json({ error: 'Khách này ngoài phạm vi nguồn được gán' })
   }
+  // Nhân viên KHÔNG được tự gán khách cho mình hay sửa phân khúc RFM
+  // (nếu không, chốt chặn requireRole ở bulk-assign thành vô nghĩa — sửa lẻ từng khách là xong).
+  const MANAGER_ONLY = ['assigned_user_id', 'rfm_segment']
+  const body = { ...(req.body ?? {}) }
+  if (!['admin', 'manager'].includes(req.user.role)) {
+    const denied = MANAGER_ONLY.filter(f => f in body)
+    if (denied.length) {
+      return res.status(403).json({ error: `Chỉ quản lý mới được sửa: ${denied.join(', ')}` })
+    }
+  }
   try {
-    const result = await updateCustomerFields(req.params.id, req.body ?? {}, { userId: req.user.sub })
+    const result = await updateCustomerFields(req.params.id, body, { userId: req.user.sub })
     res.json(result)
   } catch (e) {
-    res.status(400).json({ error: String(e.message) })
+    // Không trả nguyên văn lỗi Postgres ra ngoài (lộ tên bảng/cột/ràng buộc cho kẻ dò)
+    console.error('[api] PATCH customer lỗi:', e.message)
+    res.status(400).json({ error: e.safeMessage ?? 'Dữ liệu không hợp lệ' })
   }
 })
 

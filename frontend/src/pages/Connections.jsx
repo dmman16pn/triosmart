@@ -112,12 +112,12 @@ function Wizard({ onClose }) {
           <Field label="Shop ID" hint="Nằm trên thanh địa chỉ khi đang ở trong shop Pancake">
             <input className="inp" value={form.shop_id} onChange={e => set('shop_id', e.target.value)} /></Field>
           <Field label="API Key" hint="Cấu hình → Nâng cao → Kết nối bên thứ 3 → Webhook/API → tab API Key → Thêm mới">
-            <input className="inp" value={form.api_key} onChange={e => set('api_key', e.target.value)} /></Field>
+            <input className="inp" type="password" autoComplete="off" value={form.api_key} onChange={e => set('api_key', e.target.value)} /></Field>
         </> : <>
           <Field label="Page ID" hint="Lấy từ API danh sách trang hoặc đội hỗ trợ Pancake">
             <input className="inp" value={form.page_id} onChange={e => set('page_id', e.target.value)} /></Field>
           <Field label="Page Access Token" hint="Cài đặt → Công cụ của từng trang. Lưu ý: webhook Chat phải nhờ đội Pancake bật hộ, tốn 1 slot gói cước">
-            <input className="inp" value={form.page_access_token} onChange={e => set('page_access_token', e.target.value)} /></Field>
+            <input className="inp" type="password" autoComplete="off" value={form.page_access_token} onChange={e => set('page_access_token', e.target.value)} /></Field>
         </>}
         <button className="btn primary" style={{ width: '100%' }} disabled={busy || !form.name} onClick={createConn}>
           Tiếp tục → Kiểm tra</button>

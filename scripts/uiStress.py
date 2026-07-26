@@ -5,7 +5,9 @@ import random, sys, time
 from playwright.sync_api import sync_playwright
 
 BASE = 'http://localhost:3002'
-EMAIL, PASSWORD = 'admin@triosmart.local', '123456'
+import os
+EMAIL = os.environ.get('TRIO_EMAIL', 'admin@triosmart.local')
+PASSWORD = os.environ.get('TRIO_PASSWORD', 'TrioLocal2026dev')
 SHOT = '/private/tmp/claude-501/-Users-man-Downloads-Phuong/c8d5e9a4-99e2-4b5b-97c1-dd99207f1395/scratchpad'
 NAV_ITEMS = ['Danh sách khách', 'Phân khúc', 'Việc của tôi', 'Tổng quan',
              'Hàng đợi gộp', 'Nhật ký đồng bộ', 'Nhật ký thao tác',
