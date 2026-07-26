@@ -171,6 +171,28 @@ Ba thiết lập dưới đây áp cho **toàn bộ** tên miền shinsulab.com 
 `SSL mode = Full` (nên chuyển **Full (strict)**), `Always Use HTTPS = off` (nên **on**),
 `Minimum TLS = 1.0` (nên **1.2**).
 
+### Webhook thời gian thực — giới hạn thật của Pancake POS (26/07/2026)
+
+Đặc tả §6.4 nói xác thực bằng `webhook_headers`, nhưng thực tế:
+
+| Điều đặc tả nói | Thực tế đo được |
+|---|---|
+| `webhook_headers` để xác thực | Pancake nhận cấu hình nhưng **không bao giờ gửi lại header** |
+| `webhook_url` cấu hình qua PUT | **Chỉ nhận lần đầu**; PUT sau trả `success:true` nhưng vẫn gọi URL cũ |
+| URL gọi đúng như đăng ký | Pancake **nối thêm loại sự kiện**: `/hooks/pos` → `/hooks/pos/customers` |
+
+⇒ Không có cách nào để Pancake mang secret theo. Hệ đang xác thực webhook POS bằng
+**IP máy chủ gửi của Pancake** (`POS_WEBHOOK_IPS`, hiện `203.171.22.6` — cùng dải CMC
+Telecom với `pages.fm`). Ba lớp khiến IP này không giả mạo được:
+Nginx chỉ nhận từ dải Cloudflare → Nginx ghi đè `CF-Connecting-IP` bằng IP thật của kết nối
+→ Cloudflare cũng luôn ghi đè header đó. Đã kiểm chứng: gửi IP giả trả 403/401.
+
+**Nếu Pancake đổi máy chủ gửi**, hệ sinh alert `critical` trên dashboard kèm IP mới; thêm IP
+vào `POS_WEBHOOK_IPS` trong `.env` rồi `pm2 restart trio-receiver --update-env`.
+
+Webhook Chat cần liên hệ Pancake bật cho `page_id` (chưa bật). Trong lúc chờ, dữ liệu chat
+vẫn về qua nạp bù mỗi giờ.
+
 ### Giới hạn dữ liệu Pancake đã xác minh (26/07/2026)
 
 API POS `/orders` **chỉ trả về đơn từ ~31/03/2026 trở đi** (17.134 đơn) — lịch sử cũ hơn không lấy
