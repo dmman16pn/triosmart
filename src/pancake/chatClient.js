@@ -34,8 +34,9 @@ export class ChatClient {
         if (attempt < MAX_429_RETRY) { await sleep(3000 * (attempt + 1)); continue }
         throw e
       }
-      if ((res.status === 429 || res.status >= 500) && attempt < MAX_429_RETRY) {
-        // Pancake rate limit / lỗi tạm — lùi lại rồi thử tiếp thay vì bỏ dở cả đợt đồng bộ
+      if (res.status === 429 && attempt < MAX_429_RETRY) {
+        // Pancake rate limit — lùi lại rồi thử tiếp thay vì bỏ dở cả đợt đồng bộ.
+        // 5xx KHÔNG retry: thường là lỗi vĩnh viễn (vd since=0 → 500), nạp bù giờ sau sẽ vá.
         await sleep(3000 * (attempt + 1))
         continue
       }

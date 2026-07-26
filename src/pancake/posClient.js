@@ -17,7 +17,7 @@ export class PosClient {
     for (let attempt = 0; ; attempt++) {
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-        if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRY) {
+        if (res.status === 429 && attempt < MAX_RETRY) {   // 5xx KHÔNG retry — thường là lỗi vĩnh viễn, nạp bù giờ sau sẽ vá
           await sleep(3000 * (attempt + 1)); continue
         }
         if (!res.ok) throw new Error(`POS API ${res.status}: ${(await res.text()).slice(0, 500)}`)
