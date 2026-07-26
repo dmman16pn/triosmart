@@ -69,12 +69,12 @@ export default function App() {
           <Route path="/customers/:id" element={<CustomerProfile user={user} />} />
           <Route path="/segments" element={<Segments />} />
           <Route path="/my-work" element={<MyWork />} />
-          <Route path="/merge-queue" element={<MergeQueue />} />
-          <Route path="/sync-logs" element={<SyncLogs />} />
-          <Route path="/audit" element={<AuditLog />} />
-          <Route path="/connections" element={<Connections />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/merge-queue" element={isManagerUp ? <MergeQueue /> : <Navigate to="/customers" />} />
+          <Route path="/sync-logs" element={isManagerUp ? <SyncLogs /> : <Navigate to="/customers" />} />
+          <Route path="/audit" element={isManagerUp ? <AuditLog /> : <Navigate to="/customers" />} />
+          <Route path="/connections" element={isAdmin ? <Connections /> : <Navigate to="/customers" />} />
+          <Route path="/users" element={isAdmin ? <Users /> : <Navigate to="/customers" />} />
+          <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/customers" />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

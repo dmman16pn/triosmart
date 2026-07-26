@@ -16,9 +16,17 @@ export function createApiApp() {
   app.use('/api', customerRoutes)
   app.use('/api', adminRoutes)
 
-  // Phục vụ frontend đã build + fallback SPA
-  app.use(express.static(distDir))
+  // Phục vụ frontend đã build + fallback SPA.
+  // index.html KHÔNG được cache (asset đổi hash sau mỗi lần build — HTML cũ trỏ file
+  // đã xóa sẽ ra trang trắng); asset có hash thì cache dài vô tư.
+  app.use(express.static(distDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache')
+      else if (filePath.includes('/assets/')) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+    }
+  }))
   app.get(/^\/(?!api|hooks).*/, (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-cache')
     res.sendFile(path.join(distDir, 'index.html'), err => err ? next() : undefined)
   })
 

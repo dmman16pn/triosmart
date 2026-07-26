@@ -39,7 +39,9 @@ export default function CustomerProfile({ user }) {
       if (form.gender !== (c.gender ?? '')) changes.gender = form.gender
       if (form.internal_note !== (c.internal_note ?? '')) changes.internal_note = form.internal_note
       if (form.zalo_consent !== c.zalo_consent) changes.zalo_consent = form.zalo_consent
-      if (Object.keys(changes).length === 0) { setEditing(false); return }
+      if (Object.keys(changes).length === 0) {
+        toast('Không có thay đổi nào để lưu'); setEditing(false); return
+      }
 
       const res = await api(`/customers/${id}`, { method: 'PATCH', body: changes })
       // Thông báo TRUNG THỰC (spec U2): không nói "thành công" khi chưa đẩy được
