@@ -13,7 +13,7 @@ export default function SyncLogs() {
     api(`/webhook-events?limit=100${status ? `&status=${status}` : ''}`).then(setEvents).catch(() => {})
     api('/sync-logs?limit=100').then(setLogs).catch(() => {})
   }
-  useEffect(load, [status])
+  useEffect(() => { load() }, [status])
 
   const retry = async id => {
     try { await api(`/webhook-events/${id}/retry`, { method: 'POST' }); toast('Đã đặt lại — worker sẽ xử lý trong vài giây'); load() }

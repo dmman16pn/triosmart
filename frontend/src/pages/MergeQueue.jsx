@@ -14,7 +14,7 @@ export default function MergeQueue() {
   const toast = useToast()
 
   const load = () => api('/merge-queue').then(setRows).catch(e => toast(e.message, 'err'))
-  useEffect(load, [])
+  useEffect(() => { load() }, [])   // không đưa thẳng load vào effect — nó trả Promise
 
   const resolve = async (item, action, keepId = null) => {
     try {

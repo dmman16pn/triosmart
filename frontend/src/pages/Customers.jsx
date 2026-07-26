@@ -27,7 +27,7 @@ export default function Customers({ user }) {
     qs.set('page', page)
     api(`/customers?${qs}`).then(setData).catch(e => toast(e.message, 'err'))
   }
-  useEffect(load, [params])
+  useEffect(() => { load() }, [params])
   useEffect(() => {
     if (user.role === 'admin') api('/users').then(setUsers).catch(() => {})
   }, [])

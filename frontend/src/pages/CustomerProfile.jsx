@@ -14,7 +14,8 @@ export default function CustomerProfile({ user }) {
   const toast = useToast()
 
   const load = () => api(`/customers/${id}`).then(setD).catch(e => setErr(e.message))
-  useEffect(load, [id])
+  // Bọc trong {} — effect trả về Promise sẽ bị React gọi như hàm cleanup khi rời trang → crash
+  useEffect(() => { load() }, [id])
 
   if (err) return <div className="empty">{err} — <Link to="/customers">quay lại danh sách</Link></div>
   if (!d) return <div className="empty">Đang tải…</div>

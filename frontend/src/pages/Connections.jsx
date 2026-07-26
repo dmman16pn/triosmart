@@ -8,7 +8,7 @@ export default function Connections() {
   const toast = useToast()
 
   const load = () => api('/connections').then(setRows).catch(e => toast(e.message, 'err'))
-  useEffect(load, [])
+  useEffect(() => { load() }, [])   // không đưa thẳng load vào effect — nó trả Promise
 
   const test = async c => {
     try {
