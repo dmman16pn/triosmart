@@ -6,3 +6,4 @@ frontend/dist/
 backups/
 deploy/*.local
 .env.production
+.DS_Store
